@@ -1,0 +1,585 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>도형 꾸미기 그림판</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: 왼쪽 도형·색깔, 가운데 그림판, 오른쪽 편집 도구. 좁은 화면에서는 위에서 아래로 쌓기.
+   A single bright classroom look on purpose (light only), every color set explicitly. */
+:root {
+  color-scheme: light;
+  --sky: #DDEEFF;        /* 바탕 */
+  --panel: #FFFFFF;      /* 도구 상자 */
+  --ink: #2B3350;        /* 글자 */
+  --ink-soft: #6A7394;
+  --line: #C9D6EE;
+  --accent: #3A6FF0;     /* 저장 버튼, 선택 테두리 */
+  --accent-ink: #FFFFFF;
+  --warn: #F0524F;
+  --btn-a: #FFE7A3;      /* 도형 넣기 */
+  --btn-b: #CDEFD6;      /* 편집 */
+  --btn-c: #FFD3DF;      /* 지우기 */
+  --btn-d: #E2DAFF;      /* 순서 */
+  --display: "Jua", "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+html, body { height: 100%; }
+body {
+  background: var(--sky);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 20px;
+  box-sizing: border-box;
+}
+* { box-sizing: border-box; }
+
+header {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  max-width: 1400px; margin: 0 auto 14px;
+}
+h1 {
+  font-family: var(--display); font-weight: 400; font-size: 30px; margin: 0;
+  display: flex; align-items: center; gap: 10px; text-wrap: balance;
+  margin-right: auto;
+}
+h1 .marks { display: inline-flex; gap: 4px; }
+.top-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.name-box {
+  display: flex; align-items: center; gap: 8px; background: var(--panel);
+  border: 2px solid var(--line); border-radius: 999px; padding: 4px 6px 4px 16px;
+}
+.name-box label { font-family: var(--display); font-size: 17px; white-space: nowrap; }
+.name-box input {
+  font-family: var(--display); font-size: 18px; color: var(--ink);
+  border: none; outline: none; background: transparent; width: 9em; min-width: 0;
+  padding: 6px 4px;
+}
+.name-box:focus-within { border-color: var(--accent); }
+
+button {
+  font-family: var(--display); font-size: 17px; color: var(--ink);
+  border: 2px solid transparent; border-radius: 16px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 14px; background: var(--panel);
+  box-shadow: 0 3px 0 rgba(43, 51, 80, 0.18);
+  transition: transform .08s ease, box-shadow .08s ease, opacity .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 rgba(43, 51, 80, 0.18); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .38; cursor: not-allowed; }
+button svg { width: 26px; height: 26px; flex: none; }
+
+.btn-save { background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 10px 18px; }
+.btn-undo { background: var(--panel); border-color: var(--line); }
+.btn-clear { background: var(--btn-c); }
+
+.app {
+  max-width: 1400px; margin: 0 auto;
+  display: grid; gap: 14px;
+  grid-template-columns: 210px minmax(0, 1fr) 210px;
+  grid-template-areas: "shapes board edit" "colors board edit";
+  grid-template-rows: auto 1fr;
+  align-items: start;
+}
+.panel {
+  background: var(--panel); border-radius: 22px; padding: 14px;
+  border: 2px solid var(--line);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.panel h2 {
+  font-family: var(--display); font-weight: 400; font-size: 19px; margin: 0 0 2px;
+  color: var(--ink-soft); letter-spacing: .02em;
+}
+.p-shapes { grid-area: shapes; }
+.p-colors { grid-area: colors; }
+.p-edit { grid-area: edit; }
+.board-wrap { grid-area: board; min-width: 0; }
+
+.shape-btns { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.shape-btns button { background: var(--btn-a); justify-content: flex-start; font-size: 20px; padding: 10px 14px; }
+.shape-btns button svg { width: 36px; height: 36px; }
+
+.palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.swatch {
+  aspect-ratio: 1; width: 100%; padding: 0; border-radius: 50%;
+  border: 3px solid rgba(43, 51, 80, 0.15); box-shadow: none;
+}
+.swatch[aria-pressed="true"] { border-color: var(--ink); transform: scale(1.08); box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--ink); }
+.hint-color { font-size: 14px; color: var(--ink-soft); margin: 0; line-height: 1.45; }
+
+.edit-btns { display: grid; grid-template-columns: 1fr; gap: 9px; }
+.edit-btns button { justify-content: flex-start; background: var(--btn-b); }
+.edit-btns .order { background: var(--btn-d); }
+.edit-btns .del { background: var(--btn-c); }
+.sel-hint {
+  font-size: 14px; color: var(--ink-soft); margin: 0; line-height: 1.45;
+  background: var(--sky); border-radius: 12px; padding: 8px 10px;
+}
+
+.board {
+  position: relative; width: 100%; aspect-ratio: 3 / 2; max-width: 100%;
+  background: #FFFFFF; border-radius: 22px; border: 3px solid var(--line);
+  overflow: hidden; box-shadow: 0 6px 0 rgba(43, 51, 80, 0.10);
+}
+.board canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.board-tip { margin: 10px 4px 0; font-size: 14px; color: var(--ink-soft); line-height: 1.5; }
+.board-tip b { color: var(--ink); font-weight: 400; font-family: var(--display); }
+
+/* 확인 창과 알림 */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(43, 51, 80, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20;
+}
+.modal {
+  background: var(--panel); border-radius: 24px; padding: 24px; max-width: 360px; width: 100%;
+  text-align: center; display: flex; flex-direction: column; gap: 16px;
+}
+.modal p { font-family: var(--display); font-size: 22px; margin: 0; }
+.modal .row { display: flex; gap: 10px; justify-content: center; }
+.modal .yes { background: var(--warn); color: #FFFFFF; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%); z-index: 30;
+  background: var(--ink); color: #FFFFFF; font-family: var(--display); font-size: 18px;
+  padding: 12px 22px; border-radius: 999px; max-width: calc(100% - 32px); text-align: center;
+}
+.shake { animation: shake .4s; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+@media (prefers-reduced-motion: reduce) { .shake { animation: none; } button { transition: none; } }
+
+@media (max-width: 980px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "shapes" "board" "colors" "edit";
+    grid-template-rows: none;
+  }
+  .shape-btns { grid-template-columns: repeat(3, 1fr); }
+  .shape-btns button { justify-content: center; flex-direction: column; gap: 2px; font-size: 17px; }
+  .palette { grid-template-columns: repeat(10, 1fr); }
+  .edit-btns { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .swatch { max-width: 56px; justify-self: center; }
+}
+@media (max-width: 520px) {
+  h1 { font-size: 24px; }
+  .top-actions { width: 100%; }
+  .name-box { flex: 1 1 100%; }
+  .name-box input { flex: 1; width: auto; }
+  .edit-btns { grid-template-columns: 1fr 1fr; }
+  .palette { grid-template-columns: repeat(5, 1fr); }
+  .edit-btns button { font-size: 15px; padding: 9px 10px; gap: 6px; }
+  .edit-btns button svg { width: 22px; height: 22px; }
+}
+</style>
+
+<header>
+  <h1>
+    <span class="marks" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="#FF5A5F"/></svg>
+      <svg width="26" height="26" viewBox="0 0 26 26"><path d="M13 2 L24 23 H2 Z" fill="#FFC93C"/></svg>
+      <svg width="26" height="26" viewBox="0 0 26 26"><rect x="3" y="3" width="20" height="20" rx="3" fill="#3A86FF"/></svg>
+    </span>
+    도형 꾸미기 그림판
+  </h1>
+  <div class="top-actions">
+    <button class="btn-undo" id="btnUndo" title="되돌리기 (Ctrl+Z)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      되돌리기
+    </button>
+    <button class="btn-clear" id="btnClearAll">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg>
+      모두 지우기
+    </button>
+    <div class="name-box" id="nameBox">
+      <label for="nameInput">내 이름</label>
+      <input id="nameInput" type="text" maxlength="12" placeholder="이름을 적어요" autocomplete="off">
+      <button class="btn-save" id="btnSave">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
+        그림 저장
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="app">
+  <section class="panel p-shapes" aria-label="도형 넣기">
+    <h2>도형 넣기</h2>
+    <div class="shape-btns">
+      <button data-add="circle"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#FF5A5F" stroke="#B23A3E" stroke-width="2.5"/></svg>동그라미</button>
+      <button data-add="triangle"><svg viewBox="0 0 40 40"><path d="M20 4 L37 35 H3 Z" fill="#FFC93C" stroke="#B88A12" stroke-width="2.5" stroke-linejoin="round"/></svg>세모</button>
+      <button data-add="square"><svg viewBox="0 0 40 40"><rect x="5" y="5" width="30" height="30" rx="3" fill="#3A86FF" stroke="#2457B0" stroke-width="2.5"/></svg>네모</button>
+    </div>
+  </section>
+
+  <div class="board-wrap">
+    <div class="board"><canvas id="board" aria-label="그림판"></canvas></div>
+    <p class="board-tip">도형을 <b>눌러서</b> 고르고 <b>끌어서</b> 옮겨요. 모서리 <b>동그라미</b>를 끌면 크기가 바뀌고, 위쪽 <b>화살표 동그라미</b>를 돌리면 도형이 빙글 돌아요.</p>
+  </div>
+
+  <section class="panel p-colors" aria-label="색깔">
+    <h2>색깔 팔레트</h2>
+    <div class="palette" id="palette"></div>
+    <p class="hint-color" id="colorHint">고른 도형에 색이 칠해져요.</p>
+  </section>
+
+  <section class="panel p-edit" aria-label="편집 도구">
+    <h2>꾸미기 도구</h2>
+    <p class="sel-hint" id="selHint">먼저 그림판에서 도형을 하나 눌러 보세요.</p>
+    <div class="edit-btns">
+      <button data-act="dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>똑같이 하나 더</button>
+      <button data-act="flipX"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3v18" stroke-dasharray="2 3"/><path d="M9 6 3 18h6z"/><path d="M15 6l6 12h-6z" fill="currentColor" fill-opacity=".25"/></svg>옆으로 뒤집기</button>
+      <button data-act="flipY"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M3 12h18" stroke-dasharray="2 3"/><path d="M6 9 18 3v6z"/><path d="M6 15l12 6v-6z" fill="currentColor" fill-opacity=".25"/></svg>위아래 뒤집기</button>
+      <button data-act="front" class="order"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="11" height="11" rx="2"/><rect x="10" y="10" width="11" height="11" rx="2" fill="currentColor" fill-opacity=".85"/></svg>맨 앞으로</button>
+      <button data-act="back" class="order"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="11" height="11" rx="2" fill="currentColor" fill-opacity=".85"/><rect x="10" y="10" width="11" height="11" rx="2" fill="#FFFFFF"/></svg>맨 뒤로</button>
+      <button data-act="del" class="del"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>지우기</button>
+    </div>
+  </section>
+</main>
+
+<div class="modal-back" id="confirmBox" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmText">
+    <p id="confirmText">그림을 모두 지울까요?</p>
+    <div class="row">
+      <button class="yes" id="confirmYes">네, 지울래요</button>
+      <button id="confirmNo">아니요</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const W = 1200, H = 800, PX = 2;
+  const COLORS = [
+    ['빨강', '#FF5A5F'], ['다홍', '#FF7A45'], ['주황', '#FF9F1C'], ['살구', '#FFC4A3'],
+    ['노랑', '#FFD23F'], ['레몬', '#F4EE7A'], ['연두', '#A7D84A'], ['초록', '#2BA84A'],
+    ['청록', '#1FB5A3'], ['하늘', '#4CC9F0'], ['파랑', '#3A86FF'], ['남색', '#2C3E91'],
+    ['연보라', '#C7A8FF'], ['보라', '#8E5CF0'], ['자주', '#B5338A'], ['분홍', '#FF8FC7'],
+    ['갈색', '#A0613A'], ['회색', '#9AA0AA'], ['검정', '#3A3A44'], ['흰색', '#FFFFFF']
+  ];
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  canvas.width = W * PX; canvas.height = H * PX;
+
+  // 처음 열면 보이는 예시 그림: 집 한 채와 해님
+  let shapes = [
+    { id: 1, type: 'square',   x: 520, y: 520, w: 300, h: 240, rot: 0, fx: 1, fy: 1, color: '#FFD23F' },
+    { id: 2, type: 'triangle', x: 520, y: 315, w: 380, h: 180, rot: 0, fx: 1, fy: 1, color: '#FF5A5F' },
+    { id: 3, type: 'square',   x: 520, y: 575, w: 80,  h: 130, rot: 0, fx: 1, fy: 1, color: '#A0613A' },
+    { id: 4, type: 'circle',   x: 980, y: 160, w: 150, h: 150, rot: 0, fx: 1, fy: 1, color: '#FF9F1C' },
+    { id: 5, type: 'triangle', x: 860, y: 610, w: 110, h: 200, rot: 0, fx: 1, fy: 1, color: '#2BA84A' },
+    { id: 6, type: 'circle',   x: 860, y: 470, w: 130, h: 130, rot: 0, fx: 1, fy: 1, color: '#A7D84A' }
+  ];
+  let nextId = 7;
+  let selId = null;
+  let history = [];
+  let color = COLORS[0][1];
+  let drag = null;
+
+  const sel = () => shapes.find(s => s.id === selId) || null;
+  const snapshot = () => JSON.stringify({ shapes, nextId });
+  function pushHistory(snap) { history.push(snap); if (history.length > 60) history.shift(); }
+  function change(fn) { pushHistory(snapshot()); fn(); draw(); updateUI(); }
+
+  function darken(hex, k) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    if (hex.toUpperCase() === '#FFFFFF') return '#9AA3BD';
+    return `rgb(${Math.round(r * (1 - k))},${Math.round(g * (1 - k))},${Math.round(b * (1 - k))})`;
+  }
+
+  // ---------- 그리기 ----------
+  function shapePath(c, s) {
+    const w = s.w, h = s.h;
+    c.beginPath();
+    if (s.type === 'circle') c.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+    else if (s.type === 'square') {
+      const r = Math.min(10, w / 6, h / 6);
+      if (c.roundRect) c.roundRect(-w / 2, -h / 2, w, h, r); else c.rect(-w / 2, -h / 2, w, h);
+    } else { c.moveTo(0, -h / 2); c.lineTo(w / 2, h / 2); c.lineTo(-w / 2, h / 2); c.closePath(); }
+  }
+  function drawShape(c, s) {
+    c.save();
+    c.translate(s.x, s.y); c.rotate(s.rot); c.scale(s.fx, s.fy);
+    shapePath(c, s);
+    c.fillStyle = s.color; c.fill();
+    c.lineJoin = 'round'; c.lineWidth = 4; c.strokeStyle = darken(s.color, 0.32); c.stroke();
+    // 반짝이: 뒤집으면 자리가 바뀌어서 뒤집힌 게 보여요
+    c.save(); shapePath(c, s); c.clip();
+    c.fillStyle = 'rgba(255,255,255,0.55)';
+    c.beginPath();
+    if (s.type === 'triangle') c.ellipse(-s.w * 0.08, s.h * 0.02, s.w * 0.07, s.h * 0.12, 0.5, 0, Math.PI * 2);
+    else c.ellipse(-s.w * 0.24, -s.h * 0.22, s.w * 0.11, s.h * 0.07, -0.6, 0, Math.PI * 2);
+    c.fill();
+    c.restore();
+    c.restore();
+  }
+  function handleScale() { return W / canvas.getBoundingClientRect().width || 1; }
+  function handles(s) {
+    const cos = Math.cos(s.rot), sin = Math.sin(s.rot);
+    const toWorld = (lx, ly) => ({ x: s.x + lx * cos - ly * sin, y: s.y + lx * sin + ly * cos });
+    const k = handleScale();
+    return {
+      corners: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => toWorld(a * s.w / 2, b * s.h / 2)),
+      rotate: toWorld(0, -s.h / 2 - 44 * k),
+      top: toWorld(0, -s.h / 2),
+      r: 11 * k
+    };
+  }
+  function drawSelection(s) {
+    const hd = handles(s), k = handleScale();
+    ctx.save();
+    ctx.strokeStyle = '#3A6FF0'; ctx.lineWidth = 2.5 * k; ctx.setLineDash([10 * k, 7 * k]);
+    ctx.beginPath(); hd.corners.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(hd.top.x, hd.top.y); ctx.lineTo(hd.rotate.x, hd.rotate.y); ctx.stroke();
+    hd.corners.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, hd.r, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.lineWidth = 3 * k; ctx.stroke();
+    });
+    // 돌리기 손잡이
+    const R = hd.r * 1.45;
+    ctx.beginPath(); ctx.arc(hd.rotate.x, hd.rotate.y, R, 0, Math.PI * 2);
+    ctx.fillStyle = '#3A6FF0'; ctx.fill();
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2.6 * k; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(hd.rotate.x, hd.rotate.y, R * 0.52, -Math.PI * 0.9, Math.PI * 0.55); ctx.stroke();
+    const ax = hd.rotate.x + Math.cos(Math.PI * 0.55) * R * 0.52, ay = hd.rotate.y + Math.sin(Math.PI * 0.55) * R * 0.52;
+    ctx.beginPath(); ctx.moveTo(ax - 5 * k, ay - 1 * k); ctx.lineTo(ax, ay); ctx.lineTo(ax + 1 * k, ay - 6 * k); ctx.stroke();
+    ctx.restore();
+  }
+  function drawPaperDots() {
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#E3EAF7';
+    for (let x = 40; x < W; x += 40) for (let y = 40; y < H; y += 40) { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); }
+  }
+  function draw() {
+    ctx.setTransform(PX, 0, 0, PX, 0, 0);
+    drawPaperDots();
+    shapes.forEach(s => drawShape(ctx, s));
+    const s = sel(); if (s) drawSelection(s);
+  }
+
+  // ---------- 고르기 ----------
+  function toLocal(p, s) {
+    const dx = p.x - s.x, dy = p.y - s.y, cos = Math.cos(-s.rot), sin = Math.sin(-s.rot);
+    return { x: dx * cos - dy * sin, y: dx * sin + dy * cos };
+  }
+  function hit(s, p) {
+    const l = toLocal(p, s); let lx = l.x * s.fx, ly = l.y * s.fy;
+    const pad = 6;
+    if (s.type === 'circle') return (lx * lx) / ((s.w / 2 + pad) ** 2) + (ly * ly) / ((s.h / 2 + pad) ** 2) <= 1;
+    if (s.type === 'square') return Math.abs(lx) <= s.w / 2 + pad && Math.abs(ly) <= s.h / 2 + pad;
+    if (ly > s.h / 2 + pad || ly < -s.h / 2 - pad) return false;
+    return Math.abs(lx) <= ((ly + s.h / 2) / s.h) * (s.w / 2) + pad;
+  }
+  function pointer(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+  }
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  function whatIsUnder(p) {
+    const s = sel();
+    if (s) {
+      const hd = handles(s), grab = hd.r * 2.2;
+      if (dist(p, hd.rotate) <= grab) return { mode: 'rotate', s };
+      if (hd.corners.some(c => dist(p, c) <= grab)) return { mode: 'resize', s };
+    }
+    for (let i = shapes.length - 1; i >= 0; i--) if (hit(shapes[i], p)) return { mode: 'move', s: shapes[i] };
+    return null;
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const p = pointer(e), under = whatIsUnder(p);
+    if (!under) { selId = null; draw(); updateUI(); return; }
+    selId = under.s.id;
+    drag = { mode: under.mode, before: snapshot(), offX: p.x - under.s.x, offY: p.y - under.s.y, moved: false };
+    canvas.setPointerCapture(e.pointerId);
+    draw(); updateUI();
+  });
+  canvas.addEventListener('pointermove', e => {
+    const p = pointer(e);
+    if (!drag) {
+      const u = whatIsUnder(p);
+      canvas.style.cursor = !u ? 'default' : u.mode === 'move' ? 'move' : u.mode === 'rotate' ? 'grab' : 'nwse-resize';
+      return;
+    }
+    const s = sel(); if (!s) return;
+    drag.moved = true;
+    if (drag.mode === 'move') {
+      s.x = Math.max(0, Math.min(W, p.x - drag.offX));
+      s.y = Math.max(0, Math.min(H, p.y - drag.offY));
+    } else if (drag.mode === 'resize') {
+      const l = toLocal(p, s);
+      s.w = Math.max(30, Math.min(1400, Math.abs(l.x) * 2));
+      s.h = Math.max(30, Math.min(1400, Math.abs(l.y) * 2));
+    } else {
+      let a = Math.atan2(p.y - s.y, p.x - s.x) + Math.PI / 2;
+      const step = Math.PI / 4, near = Math.round(a / step) * step;
+      if (Math.abs(a - near) < 0.08) a = near; // 반듯한 각도에 착 붙어요
+      s.rot = a;
+    }
+    draw();
+  });
+  function endDrag() {
+    if (drag && drag.moved) pushHistory(drag.before);
+    drag = null; updateUI();
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  // ---------- 도구 ----------
+  function addShape(type) {
+    change(() => {
+      const size = type === 'triangle' ? { w: 220, h: 190 } : { w: 190, h: 190 };
+      const jitter = () => (Math.random() - 0.5) * 160;
+      const s = { id: nextId++, type, x: W / 2 + jitter(), y: H / 2 + jitter(), rot: 0, fx: 1, fy: 1, color, ...size };
+      shapes.push(s); selId = s.id;
+    });
+  }
+  const actions = {
+    dup(s) {
+      const c = { ...s, id: nextId++, x: Math.min(W, s.x + 36), y: Math.min(H, s.y + 36) };
+      shapes.push(c); selId = c.id;
+    },
+    flipX(s) { s.fx *= -1; s.rot = -s.rot; },
+    flipY(s) { s.fy *= -1; s.rot = -s.rot; },
+    front(s) { shapes = shapes.filter(x => x !== s); shapes.push(s); },
+    back(s) { shapes = shapes.filter(x => x !== s); shapes.unshift(s); },
+    del(s) { shapes = shapes.filter(x => x !== s); selId = null; }
+  };
+  document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addShape(b.dataset.add)));
+  document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    const s = sel(); if (s) change(() => actions[b.dataset.act](s));
+  }));
+
+  function undo() {
+    if (!history.length) return;
+    const st = JSON.parse(history.pop());
+    shapes = st.shapes; nextId = st.nextId;
+    if (!sel()) selId = null;
+    draw(); updateUI();
+  }
+  document.getElementById('btnUndo').addEventListener('click', undo);
+
+  // 색깔 팔레트
+  const palette = document.getElementById('palette');
+  COLORS.forEach(([name, hex]) => {
+    const b = document.createElement('button');
+    b.className = 'swatch'; b.style.background = hex; b.title = name;
+    b.setAttribute('aria-label', name); b.dataset.color = hex;
+    b.addEventListener('click', () => {
+      color = hex;
+      const s = sel();
+      if (s && s.color !== hex) change(() => { s.color = hex; }); else updateUI();
+    });
+    palette.appendChild(b);
+  });
+
+  // 모두 지우기 확인 창
+  const confirmBox = document.getElementById('confirmBox');
+  document.getElementById('btnClearAll').addEventListener('click', () => { if (shapes.length) { confirmBox.hidden = false; document.getElementById('confirmNo').focus(); } });
+  document.getElementById('confirmNo').addEventListener('click', () => { confirmBox.hidden = true; });
+  document.getElementById('confirmYes').addEventListener('click', () => {
+    confirmBox.hidden = true;
+    change(() => { shapes = []; selId = null; });
+    toast('다 지웠어요. 되돌리기로 다시 살릴 수 있어요.');
+  });
+
+  // 키보드
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && sel()) { e.preventDefault(); change(() => actions.del(sel())); }
+    else if (e.key === 'Escape') { selId = null; confirmBox.hidden = true; draw(); updateUI(); }
+  });
+
+  function updateUI() {
+    const s = sel();
+    document.querySelectorAll('[data-act]').forEach(b => { b.disabled = !s; });
+    document.getElementById('btnUndo').disabled = !history.length;
+    document.getElementById('btnClearAll').disabled = !shapes.length;
+    const shown = s ? s.color : color;
+    palette.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === shown)));
+    const names = { circle: '동그라미', triangle: '세모', square: '네모' };
+    document.getElementById('selHint').textContent = s
+      ? `${names[s.type]}를 골랐어요. 아래 버튼을 눌러 꾸며 보세요.`
+      : '먼저 그림판에서 도형을 하나 눌러 보세요.';
+    document.getElementById('colorHint').textContent = s
+      ? '누르면 고른 도형에 바로 칠해져요.'
+      : '새로 넣는 도형이 이 색으로 나와요.';
+  }
+
+  // ---------- 알림 ----------
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+  }
+
+  // ---------- 그림 저장 ----------
+  const nameInput = document.getElementById('nameInput');
+  try { nameInput.value = localStorage.getItem('shape-board-name') || ''; } catch (e) {}
+  nameInput.addEventListener('input', () => { try { localStorage.setItem('shape-board-name', nameInput.value); } catch (e) {} });
+
+  let downloadsCap;
+  if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloadsCap = d; }).catch(() => { downloadsCap = null; });
+
+  async function makePicture(name) {
+    try { await document.fonts.load('40px "Jua"'); } catch (e) {}
+    const out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    const c = out.getContext('2d');
+    c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, W, H);
+    shapes.forEach(s => drawShape(c, s));
+    // 오른쪽 아래 이름표
+    const d = new Date();
+    const label = `그린 사람: ${name}   ${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    c.font = '30px "Jua", "Gowun Dodum", sans-serif';
+    const tw = c.measureText(label).width, bw = tw + 44, bh = 54, bx = W - bw - 24, by = H - bh - 22;
+    c.fillStyle = 'rgba(255,255,255,0.92)'; c.strokeStyle = '#3A6FF0'; c.lineWidth = 3;
+    c.beginPath(); if (c.roundRect) c.roundRect(bx, by, bw, bh, 27); else c.rect(bx, by, bw, bh); c.fill(); c.stroke();
+    c.fillStyle = '#2B3350'; c.textBaseline = 'middle'; c.fillText(label, bx + 22, by + bh / 2 + 1);
+    return new Promise(res => out.toBlob(res, 'image/png'));
+  }
+
+  document.getElementById('btnSave').addEventListener('click', async () => {
+    const name = nameInput.value.trim();
+    if (!name) {
+      const box = document.getElementById('nameBox');
+      box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+      nameInput.focus(); toast('먼저 내 이름을 적어 주세요!'); return;
+    }
+    if (!shapes.length) { toast('그림판이 비어 있어요. 도형을 넣어 보세요!'); return; }
+    const blob = await makePicture(name);
+    const filename = `${name}_도형꾸미기.png`;
+    if (window.claude && window.claude.use) {
+      const dl = downloadsCap !== undefined ? downloadsCap : await window.claude.use('downloads').catch(() => null);
+      if (dl) {
+        try { await dl.save({ filename, data: blob }); toast(`${name} 친구의 그림을 저장했어요!`); }
+        catch (err) { toast(err && err.code === 'declined' ? '저장을 취소했어요.' : '지금은 저장할 수 없어요. 잠시 뒤에 다시 해 보세요.'); }
+        return;
+      }
+    }
+    // 그림판 파일을 내 컴퓨터에서 바로 열었을 때
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(`${name} 친구의 그림을 저장했어요!`);
+  });
+
+  window.addEventListener('resize', draw);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  draw(); updateUI();
+})();
+</script>
+
+</body></html>
